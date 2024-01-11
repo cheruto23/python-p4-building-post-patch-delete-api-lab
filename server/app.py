@@ -18,17 +18,64 @@ db.init_app(app)
 def home():
     return '<h1>Bakery GET-POST-PATCH-DELETE API</h1>'
 
-@app.route('/bakeries')
+@app.route('/bakeries', methods=["POST"])
 def bakeries():
-    bakeries = [bakery.to_dict() for bakery in Bakery.query.all()]
-    return make_response(  bakeries,   200  )
+    if request.method == 'POST':
+        # get data from form
+        bakery_id = request.form.get("bakery_id")
+        name = request.form.get("name")
+        price = request.form.get("price")
+        # creating new baked goods instance
+        new_baked_good = BakedGood(
+            bakery_id=bakery_id,
+            name=name,
+            price=price
+        )
+        db.session.add(new_baked_good)
+        db.session.commit()
 
-@app.route('/bakeries/<int:id>')
+        response_data = new_baked_good.to_dict()
+        return make_response(response_data, 201)
+
+@app.route('/bakeries/<int:id>', methods=["PATCH"])
 def bakery_by_id(id):
+    if request.method == "PATCH":
+        bakery = Bakery.query.get(id)
 
-    bakery = Bakery.query.filter_by(id=id).first()
-    bakery_serialized = bakery.to_dict()
-    return make_response ( bakery_serialized, 200  )
+        if bakery:
+            for attr in request.form:
+                setattr(bakery, attr, request.form.get(attr))
+
+            db.session.add(bakery)
+            db.session.commit()
+
+            bakery_serialized = bakery.to_dict()
+            return make_response(bakery_serialized, 200)
+        else:
+            response_body = {
+                "error": f"Bakery with ID {id} not found."
+            }
+            return make_response(jsonify(response_body), 404)
+
+
+@app.route('/baked_goods/<int:id>', methods=["DELETE"])
+def bakedGoods_by_id(id):
+    if request.method == 'DELETE':
+        baked_good = BakedGood.query.get(id)
+        if baked_good:
+            db.session.delete(baked_good)
+            db.session.commit()
+            response_body = {
+                "deleted_successfuly": True,
+                "message": "Deleted."
+            }
+            return make_response(jsonify(response_body), 200)
+        else:
+            response_body = {
+                "deleted_successfuly": False,
+                "message": f"BakedGood with ID {id} not found."
+            }
+            return make_response(jsonify(response_body), 404)
 
 @app.route('/baked_goods/by_price')
 def baked_goods_by_price():
